@@ -12,4 +12,7 @@ public class SonarrSeries
 
     [JsonPropertyName("path")]
     public string? Path { get; set; }
+
+    [JsonPropertyName("alternateTitles")]
+    public List<SonarrAlternateTitle>? AlternateTitles { get; set; }
 }
