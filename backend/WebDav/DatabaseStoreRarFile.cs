@@ -4,6 +4,7 @@ using NzbWebDAV.Clients.Usenet;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database;
 using NzbWebDAV.Database.Models;
+using NzbWebDAV.Services.PrefetchCache;
 using NzbWebDAV.Streams;
 using NzbWebDAV.WebDav.Base;
 
@@ -29,6 +30,11 @@ public class DatabaseStoreRarFile(
     {
         // store the DavItem being accessed in the http context
         httpContext.Items["DavItem"] = davRarFile;
+
+        var cachedStream = await PrefetchCacheReadPath
+            .TryOpenCachedStreamAsync(davRarFile.Id, dbClient, ct)
+            .ConfigureAwait(false);
+        if (cachedStream is not null) return cachedStream;
 
         var id = davRarFile.Id;
         var rarFile = await dbClient.GetDavRarFileAsync(davRarFile, ct).ConfigureAwait(false);
