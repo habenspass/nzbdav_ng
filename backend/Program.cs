@@ -11,6 +11,7 @@ using NzbWebDAV.Api.SabControllers;
 using NzbWebDAV.Auth;
 using NzbWebDAV.Clients.Rclone;
 using NzbWebDAV.Clients.Usenet;
+using NzbWebDAV.Clients.Usenet.Bandwidth;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database;
 using NzbWebDAV.Extensions;
@@ -212,6 +213,7 @@ class Program
                     new ProviderUsageTracker(sp.GetRequiredService<ActiveReadRegistry>()))
                 .AddSingleton<QueueItemSourceTracker>()
                 .AddSingleton<StreamingFailureTracker>()
+                .AddSingleton<UsenetBandwidthLimiter>()
                 .AddSingleton<UsenetStreamingClient>()
                 // LazyRarResolver takes INntpClient (for testability) but must
                 // use the shared streaming client; wire it explicitly instead

@@ -1,6 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using NzbWebDAV.Clients.Usenet.Bandwidth;
+using NzbWebDAV.Clients.Usenet.Concurrency;
+using NzbWebDAV.Clients.Usenet.Contexts;
 using NzbWebDAV.Clients.Usenet.Models;
 using NzbWebDAV.Exceptions;
 using NzbWebDAV.Database.Models.Metrics;
@@ -26,7 +29,8 @@ public class MultiProviderNntpClient(
     Func<bool>? retryPrimaryOnMiss = null,
     StreamTraceBuffer? streamTrace = null,
     ActiveReadRegistry? activeReadRegistry = null,
-    ArticleMissNegativeCache? articleMissCache = null
+    ArticleMissNegativeCache? articleMissCache = null,
+    UsenetBandwidthLimiter? bandwidthLimiter = null
 ) : NntpClient, INntpConnectionStats
 {
     /// <summary>
@@ -271,7 +275,7 @@ public class MultiProviderNntpClient(
                 _usageTracker.RecordSuccess(primaryProvider.MetricsKey);
                 RecordFetch(primaryProvider.MetricsKey, SegmentFetch.FetchStatus.Ok,
                     primaryStopwatch.ElapsedMilliseconds, 0);
-                return WrapProviderResponse(response, primaryProvider.MetricsKey);
+                return WrapProviderResponse(response, primaryProvider.MetricsKey, cancellationToken);
             }
 
             var definitiveMiss = response != null &&
@@ -369,7 +373,7 @@ public class MultiProviderNntpClient(
                                 _usageTracker.RecordFailoverSave();
                                 RecordFailoverMisses(priorMisses, provider.MetricsKey);
                             }
-                            response = WrapProviderResponse(response, provider.MetricsKey);
+                            response = WrapProviderResponse(response, provider.MetricsKey, cancellationToken);
                             gateOwnedByTransfer = true;
                             deferredCallback.Activate(result =>
                             {
@@ -579,7 +583,7 @@ public class MultiProviderNntpClient(
                         _usageTracker.RecordFailoverSave();
                         RecordFailoverMisses(priorMisses, provider.MetricsKey);
                     }
-                    result = WrapProviderResponse(result, provider.MetricsKey);
+                    result = WrapProviderResponse(result, provider.MetricsKey, cancellationToken);
                     deferredCallback.Activate(onConnectionReadyAgain ?? (_ => { }));
                     return result;
                 }
@@ -723,7 +727,7 @@ public class MultiProviderNntpClient(
                         _usageTracker.RecordFailoverSave();
                         RecordFailoverMisses(priorMisses, rescuer: provider.MetricsKey);
                     }
-                    result = WrapProviderResponse(result, provider.MetricsKey);
+                    result = WrapProviderResponse(result, provider.MetricsKey, cancellationToken);
                 }
                 else if (result is UsenetDecodedBodyResponse or UsenetDecodedArticleResponse)
                 {
@@ -877,30 +881,47 @@ public class MultiProviderNntpClient(
         }
     }
 
-    private T WrapProviderResponse<T>(T result, string metricsKey) where T : UsenetResponse
+    private T WrapProviderResponse<T>(T result, string metricsKey, CancellationToken cancellationToken)
+        where T : UsenetResponse
     {
         return result switch
         {
             UsenetDecodedBodyResponse b
                 => (T)(object)(b with
                 {
-                    Stream = WrapProviderStream(b.Stream!, b.SegmentId, metricsKey)
+                    Stream = WrapProviderStream(b.Stream!, b.SegmentId, metricsKey, cancellationToken)
                 }),
             UsenetDecodedArticleResponse a
                 => (T)(object)(a with
                 {
-                    Stream = WrapProviderStream(a.Stream!, a.SegmentId, metricsKey)
+                    Stream = WrapProviderStream(a.Stream!, a.SegmentId, metricsKey, cancellationToken)
                 }),
             _ => result,
         };
     }
 
-    private YencStream WrapProviderStream(YencStream stream, SegmentId segmentId, string metricsKey)
+    private YencStream WrapProviderStream(
+        YencStream stream, SegmentId segmentId, string metricsKey, CancellationToken cancellationToken)
     {
         YencStream wrapped = new CorruptionDetectingYencStream(stream, segmentId, metricsKey);
+        if (bandwidthLimiter != null)
+            wrapped = new ThrottledYencStream(wrapped, bandwidthLimiter, ResolveBandwidthLane(cancellationToken));
         if (bytesTracker != null)
             wrapped = new CountingYencStream(wrapped, bytesTracker, metricsKey, activeReadRegistry);
         return wrapped;
+    }
+
+    // Mirrors DownloadingNntpClient.SelectSemaphore's lane precedence exactly, so "streaming
+    // gets priority" means the same thing for connection admission and for byte-rate pacing.
+    // A stream with neither context (e.g. background prefetch) resolves to Queue, same as
+    // SelectSemaphore's `?? SemaphorePriority.Low` fallback.
+    private static BandwidthLane ResolveBandwidthLane(CancellationToken cancellationToken)
+    {
+        if (cancellationToken.GetContext<QueueDownloadContext>() is not null)
+            return BandwidthLane.Queue;
+
+        var priority = cancellationToken.GetContext<DownloadPriorityContext>()?.Priority;
+        return priority == SemaphorePriority.High ? BandwidthLane.Streaming : BandwidthLane.Queue;
     }
 
     /// <summary>

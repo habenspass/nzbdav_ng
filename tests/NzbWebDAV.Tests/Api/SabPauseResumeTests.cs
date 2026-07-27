@@ -8,6 +8,7 @@ using NzbWebDAV.Api.SabControllers.Pause;
 using NzbWebDAV.Api.SabControllers.Resume;
 using NzbWebDAV.Api.SabControllers.SpeedLimit;
 using NzbWebDAV.Clients.Usenet;
+using NzbWebDAV.Clients.Usenet.Bandwidth;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database;
 using NzbWebDAV.Database.Interceptors;
@@ -70,7 +71,8 @@ public sealed class SabPauseResumeTests : IAsyncLifetime
             new MetricsWriter(),
             new ProviderBytesTracker(),
             new StreamTraceBuffer(100),
-            new ActiveReadRegistry());
+            new ActiveReadRegistry(),
+            new UsenetBandwidthLimiter(_configManager));
         _queueManager = new QueueManager(
             usenet,
             _configManager,

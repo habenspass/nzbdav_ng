@@ -337,7 +337,12 @@ public class ConfigManager
                 case ConfigKeys.CachePrefetchThresholdPercent:
                 case ConfigKeys.CacheMaxCacheTimeHours:
                 case ConfigKeys.CacheMaxCacheEpisodes:
+                case ConfigKeys.UsenetBandwidthStreamingReservePercent:
                     RequireLong(item.ConfigName, value);
+                    break;
+
+                case ConfigKeys.UsenetBandwidthLimitMbps:
+                    RequireDecimal(item.ConfigName, value);
                     break;
 
                 case ConfigKeys.ApiEnsureImportableVideo:
@@ -406,6 +411,12 @@ public class ConfigManager
         {
             if (!long.TryParse(value, out _))
                 throw new ArgumentException($"Config value for '{key}' must be a whole number, but was '{value}'.");
+        }
+
+        static void RequireDecimal(string key, string value)
+        {
+            if (!double.TryParse(value, out _))
+                throw new ArgumentException($"Config value for '{key}' must be a number, but was '{value}'.");
         }
 
         static void RequireBool(string key, string value)
@@ -717,14 +728,37 @@ public class ConfigManager
 
     /// <summary>
     /// SAB-compatible speed limit in KB/s set via <c>mode=speedlimit</c>. 0 means
-    /// unlimited. Accepted and stored for Arr/API compatibility; actual byte/s
-    /// throttling is tracked separately (see #375).
+    /// unlimited. Accepted and stored for Arr/API compatibility; enforced as a
+    /// sub-cap on the Queue lane only by <see cref="Clients.Usenet.Bandwidth.UsenetBandwidthLimiter"/>.
     /// </summary>
     public int GetSabSpeedLimitKbps()
     {
         var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.QueueSpeedLimitKbps));
         if (v == null) return 0;
         return int.TryParse(v, out var n) ? Math.Max(0, n) : 0;
+    }
+
+    /// <summary>
+    /// Global Usenet download bandwidth cap in Mbit/s. Empty/unset/non-positive means
+    /// unlimited (null).
+    /// </summary>
+    public double? GetUsenetBandwidthLimitMbps()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.UsenetBandwidthLimitMbps));
+        if (v == null) return null;
+        return double.TryParse(v, out var n) && n > 0 ? n : null;
+    }
+
+    /// <summary>
+    /// Percentage of the global bandwidth cap that Streaming reads (interactive
+    /// playback) are preferentially granted when the Queue lane is also actively
+    /// contending for bandwidth. Either lane can use the full cap when the other is idle.
+    /// </summary>
+    public int GetUsenetBandwidthStreamingReservePercent()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.UsenetBandwidthStreamingReservePercent));
+        if (v == null) return 80;
+        return int.TryParse(v, out var n) ? Math.Clamp(n, 0, 100) : 80;
     }
 
     public bool IsPipeliningEnabled()

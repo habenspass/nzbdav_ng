@@ -734,6 +734,58 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
             </section>
             </ManagedSetting>
 
+            <ManagedSetting configKeys={["usenet.bandwidth-limit-mbps", "usenet.bandwidth-streaming-reserve-percent"]}>
+            <section className="rounded-lg border border-base-content/10 bg-base-100 px-3 py-2.5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+                    <div className="flex shrink-0 items-center gap-1.5 text-base-content/60">
+                        <Icon name="speed" className="!text-[16px]" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide">Bandwidth</span>
+                    </div>
+
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                        <Tooltip content="Global cap across all Usenet traffic, in Mbit/s. Leave empty for unlimited.">
+                            <div className="flex items-center gap-1.5">
+                                <Label htmlFor="bandwidth-limit-mbps" className="mb-0 shrink-0 text-[11px] text-base-content/50">
+                                    Limit (Mbit/s)
+                                </Label>
+                                <Input
+                                    type="text"
+                                    id="bandwidth-limit-mbps"
+                                    className={`input-sm w-20 ${config["usenet.bandwidth-limit-mbps"] !== undefined && config["usenet.bandwidth-limit-mbps"] !== "" && !isPositiveDecimal(config["usenet.bandwidth-limit-mbps"]) ? "input-error" : ""}`}
+                                    placeholder="Unlimited"
+                                    value={config["usenet.bandwidth-limit-mbps"] ?? ""}
+                                    onChange={(e) => setNewConfig({
+                                        ...config,
+                                        "usenet.bandwidth-limit-mbps": e.target.value,
+                                    })}
+                                />
+                            </div>
+                        </Tooltip>
+                        {config["usenet.bandwidth-limit-mbps"] && (
+                            <Tooltip content="Under contention, streaming (playback) reads are preferentially granted up to this share of the cap. Either side can use the full cap when the other is idle. Default 80.">
+                                <div className="flex items-center gap-1.5">
+                                    <Label htmlFor="bandwidth-streaming-reserve" className="mb-0 shrink-0 text-[11px] text-base-content/50">
+                                        Streaming share %
+                                    </Label>
+                                    <Input
+                                        type="text"
+                                        id="bandwidth-streaming-reserve"
+                                        className={`input-sm w-16 ${config["usenet.bandwidth-streaming-reserve-percent"] !== undefined && config["usenet.bandwidth-streaming-reserve-percent"] !== "" && !isBandwidthStreamingReservePercent(config["usenet.bandwidth-streaming-reserve-percent"]) ? "input-error" : ""}`}
+                                        placeholder="80"
+                                        value={config["usenet.bandwidth-streaming-reserve-percent"] ?? ""}
+                                        onChange={(e) => setNewConfig({
+                                            ...config,
+                                            "usenet.bandwidth-streaming-reserve-percent": e.target.value,
+                                        })}
+                                    />
+                                </div>
+                            </Tooltip>
+                        )}
+                    </div>
+                </div>
+            </section>
+            </ManagedSetting>
+
             <ManagedSetting configKey="usenet.providers">
             <section className="space-y-3">
                 <div className="flex items-end justify-between gap-4">
@@ -2103,11 +2155,23 @@ export function isUsenetSettingsUpdated(config: Record<string, string>, newConfi
         || config["usenet.cascade.retry-primary-on-miss"] !== newConfig["usenet.cascade.retry-primary-on-miss"]
         || config["usenet.article-miss-cache-ttl-seconds"] !== newConfig["usenet.article-miss-cache-ttl-seconds"]
         || config["usenet.article-miss-cache-max-entries"] !== newConfig["usenet.article-miss-cache-max-entries"]
+        || config["usenet.bandwidth-limit-mbps"] !== newConfig["usenet.bandwidth-limit-mbps"]
+        || config["usenet.bandwidth-streaming-reserve-percent"] !== newConfig["usenet.bandwidth-streaming-reserve-percent"]
 }
 
 export function isPositiveInteger(value: string) {
     const num = Number(value);
     return Number.isInteger(num) && num > 0 && value.trim() === num.toString();
+}
+
+export function isPositiveDecimal(value: string) {
+    const num = Number(value);
+    return value.trim() !== "" && Number.isFinite(num) && num > 0;
+}
+
+export function isBandwidthStreamingReservePercent(value: string) {
+    const num = Number(value);
+    return Number.isInteger(num) && value.trim() === num.toString() && num >= 0 && num <= 100;
 }
 
 export function isArticleMissCacheTtl(value: string) {
