@@ -19,6 +19,10 @@ public abstract class BaseStoreItem : IStoreItem
     // NZB blob ID for downloading the original NZB file; null for items without one
     public virtual Guid? NzbBlobId => null;
 
+    // The backing DavItem's id, for callers (e.g. manual prefetch-cache triggering)
+    // that need to address this item by database id; null for items without one
+    public virtual Guid? DavItemId => null;
+
     // interface implementation
     public IPropertyManager? PropertyManager => BaseStoreItemPropertyManager.Instance;
 

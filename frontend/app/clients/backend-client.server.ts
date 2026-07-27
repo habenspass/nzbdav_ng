@@ -215,6 +215,13 @@ class BackendClient {
         });
     }
 
+    public async getPrefetchCacheStatus(): Promise<PrefetchCacheStatusItem[]> {
+        const data = await call("/api/get-prefetch-cache-status", "Failed to get prefetch cache status", {
+            method: "GET",
+        });
+        return data.items ?? [];
+    }
+
     public async getWatchdogEntries(limit: number = 200): Promise<WatchdogEntry[]> {
         const data = await call(`/api/get-watchdog-entries?limit=${limit}`, "Failed to get watchdog entries", {
             method: "GET",
@@ -404,6 +411,7 @@ export type DirectoryItem = {
     isDirectory: boolean,
     size: number | null | undefined,
     nzbBlobId?: string,
+    davItemId?: string,
 }
 
 export type ConfigItem = {
@@ -542,6 +550,20 @@ export type HealthCheckQueueItem = {
     lastHealthCheck: string | null,
     nextHealthCheck: string | null,
     progress: number,
+}
+
+export type PrefetchCacheStatusItem = {
+    id: string,
+    davItemId: string,
+    seriesName: string,
+    seasonNumber: number,
+    episodeNumber: number,
+    status: "InProgress" | "Complete" | "Failed",
+    fileSize: number | null,
+    startedAt: number,
+    completedAt: number | null,
+    lastAccessedAt: number,
+    failureReason: string | null,
 }
 
 export type HealthCheckHistoryResponse = {

@@ -15,7 +15,7 @@ import { parseExploreWebdavPath } from "~/utils/path";
 import { ItemMenu } from "./item-menu/item-menu";
 import { ConfirmModal } from "~/components/confirm-modal/confirm-modal";
 import { classNames } from "~/utils/styling";
-import { Icon, Checkbox, Button } from "~/components/ui";
+import { Alert, Icon, Checkbox, Button } from "~/components/ui";
 
 const ITEM_MENU_CLASS =
     "flex select-none items-center self-stretch rounded-r-lg px-5 py-[15px]";
@@ -25,6 +25,7 @@ export type ExplorePageData = {
     parentDirectories: string[],
     items: (DirectoryItem | ExploreFile)[],
     error: "not-found" | null,
+    isCachePrefetchEnabled: boolean,
 }
 
 export type ExploreFile = DirectoryItem & {
@@ -46,13 +47,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
             parentDirectories: [],
             items: [],
             error: "not-found" as const,
+            isCachePrefetchEnabled: false,
         };
     }
     const path = parsed.path;
+    const config = await backendClient.getConfig(["cache.prefetch-enabled"]);
+    const isCachePrefetchEnabled =
+        config.find(item => item.configName === "cache.prefetch-enabled")?.configValue === "true";
     try {
         return {
             parentDirectories: getParentDirectories(path),
             error: null,
+            isCachePrefetchEnabled,
             items: (await backendClient.listWebdavDirectory(path)).map(x => {
                 if (x.isDirectory) return x;
                 return {
@@ -68,6 +74,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
             parentDirectories: getParentDirectories(path),
             items: [],
             error: "not-found" as const,
+            isCachePrefetchEnabled,
         };
     }
 }
@@ -97,6 +104,8 @@ function Body(props: ExplorePageData) {
     const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [cachingNames, setCachingNames] = useState<Set<string>>(() => new Set());
+    const [cacheError, setCacheError] = useState<string | null>(null);
     const lastClickedRef = useRef<string | null>(null);
 
     // Reset selection and query when navigating between folders.
@@ -153,6 +162,29 @@ function Body(props: ExplorePageData) {
         setDeleteError(null);
         setPendingDelete(names);
     }, []);
+
+    const requestCacheNow = useCallback(async (file: ExploreFile) => {
+        if (!file.davItemId || cachingNames.has(file.name)) return;
+        setCacheError(null);
+        setCachingNames(prev => new Set(prev).add(file.name));
+        try {
+            const resp = await fetch(`/api/trigger-prefetch-cache?davItemId=${encodeURIComponent(file.davItemId)}`, {
+                method: 'POST',
+            });
+            if (!resp.ok) {
+                const data = await resp.json().catch(() => ({} as any));
+                setCacheError(`${file.name}: ${data.error || resp.statusText}`);
+            }
+        } catch (err: any) {
+            setCacheError(`${file.name}: ${err?.message || 'network error'}`);
+        } finally {
+            setCachingNames(prev => {
+                const next = new Set(prev);
+                next.delete(file.name);
+                return next;
+            });
+        }
+    }, [cachingNames]);
 
     const cancelDelete = useCallback(() => {
         if (isDeleting) return;
@@ -314,6 +346,11 @@ function Body(props: ExplorePageData) {
                     onDelete={() => requestDelete(Array.from(selected))}
                 />
             )}
+            {cacheError && (
+                <Alert variant="danger" className="text-xs">
+                    Failed to trigger caching: {cacheError}
+                </Alert>
+            )}
             {!showSkeleton && visibleItems.length === 0 && (
                 <EmptyState
                     isFiltered={query.trim().length > 0}
@@ -376,7 +413,12 @@ function Body(props: ExplorePageData) {
                                     openClassName={ITEM_MENU_OPEN_CLASS}
                                     exploreFile={x as ExploreFile}
                                     previewPath={getFilePath(x as ExploreFile)}
-                                    onRemove={canDelete ? () => requestDelete([x.name]) : undefined} />
+                                    onRemove={canDelete ? () => requestDelete([x.name]) : undefined}
+                                    onCacheNow={
+                                        props.isCachePrefetchEnabled && (x as ExploreFile).davItemId
+                                            ? () => requestCacheNow(x as ExploreFile)
+                                            : undefined
+                                    } />
                             </div>
                         );
                     })}
