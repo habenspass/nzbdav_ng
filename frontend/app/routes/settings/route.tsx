@@ -16,6 +16,7 @@ import { isWatchdogSettingsUpdated, WatchdogSettings } from "./watchdog/watchdog
 import { isPreflightSettingsUpdated, PreflightSettings } from "./preflight/preflight";
 import { isWatchtowerSettingsUpdated, WatchtowerSettings } from "./watchtower/watchtower";
 import { isWardenSettingsUpdated, WardenSettings } from "./warden/warden";
+import { isCacheSettingsUpdated, CacheSettings } from "./cache/cache";
 import { isRcloneSettingsUpdated, RcloneSettings } from "./rclone/rclone";
 import { SupportSettings } from "./support/support";
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
@@ -152,6 +153,13 @@ const defaultConfig = {
     "warden.hide-dead": "true",
     "warden.quorum": "2",
     "warden.backbone-scope": "true",
+    "cache.prefetch-enabled": "false",
+    "cache.dir": "",
+    "cache.min-free-space-gb": "10",
+    "cache.prefetch-threshold-percent": "80",
+    "cache.max-cache-time-hours": "48",
+    "cache.max-cache-episodes": "5",
+    "jellyfin.webhook-token": "",
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -217,7 +225,8 @@ function Body(props: BodyProps) {
     const isBackupUpdated = isBackupSettingsUpdated(config, newConfig);
     const isWatchtowerUpdated = isWatchtowerSettingsUpdated(config, newConfig);
     const isWardenUpdated = isWardenSettingsUpdated(config, newConfig);
-    const isUpdated = iseUsenetUpdated || isSabnzbdUpdated || isWebdavUpdated || isArrsUpdated || isIndexersUpdated || isProfilesUpdated || isRepairsUpdated || isWatchdogUpdated || isPreflightUpdated || isRcloneUpdated || isMaintenanceUpdated || isBackupUpdated || isWatchtowerUpdated || isWardenUpdated;
+    const isCacheUpdated = isCacheSettingsUpdated(config, newConfig);
+    const isUpdated = iseUsenetUpdated || isSabnzbdUpdated || isWebdavUpdated || isArrsUpdated || isIndexersUpdated || isProfilesUpdated || isRepairsUpdated || isWatchdogUpdated || isPreflightUpdated || isRcloneUpdated || isMaintenanceUpdated || isBackupUpdated || isWatchtowerUpdated || isWardenUpdated || isCacheUpdated;
     const navigationBlocker = useNavigationBlocker(isUpdated);
 
     const saveButtonLabel = isSaving ? "Saving..."
@@ -302,6 +311,7 @@ function Body(props: BodyProps) {
                 {activeTab === "preflight" && <PreflightSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "watchtower" && <WatchtowerSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "warden" && <WardenSettings config={newConfig} setNewConfig={setNewConfig} />}
+                {activeTab === "cache" && <CacheSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "sabnzbd" && <SabnzbdSettings config={newConfig} setNewConfig={setNewConfig} appVersion={props.appVersion} />}
                 {activeTab === "webdav" && <WebdavSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "arrs" && <ArrsSettings config={newConfig} setNewConfig={setNewConfig} />}

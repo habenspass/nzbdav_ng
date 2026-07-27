@@ -8,7 +8,7 @@ namespace NzbWebDAV.Tests.Services.PrefetchCache;
 public class SonarrNextEpisodeResolverTests
 {
     [Fact]
-    public async Task ResolveNextEpisodePath_NextEpisodeInSameSeason_ReturnsItsFilePath()
+    public async Task ResolveNextEpisode_NextEpisodeInSameSeason_ReturnsItsFilePath()
     {
         var client = CreateClient(
             ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Breaking Bad"}]""")),
@@ -21,13 +21,16 @@ public class SonarrNextEpisodeResolverTests
                 """)),
             ("GET /api/v3/episodefile/101", JsonResponse("""{"id":101,"seriesId":1,"path":"/tv/Breaking Bad/S02E06.mkv"}""")));
 
-        var path = await SonarrNextEpisodeResolver.ResolveNextEpisodePath([client], "Breaking Bad", 2, 5);
+        var next = await SonarrNextEpisodeResolver.ResolveNextEpisode([client], "Breaking Bad", 2, 5);
 
-        Assert.Equal("/tv/Breaking Bad/S02E06.mkv", path);
+        Assert.NotNull(next);
+        Assert.Equal("/tv/Breaking Bad/S02E06.mkv", next.Value.Path);
+        Assert.Equal(2, next.Value.SeasonNumber);
+        Assert.Equal(6, next.Value.EpisodeNumber);
     }
 
     [Fact]
-    public async Task ResolveNextEpisodePath_CurrentIsLastEpisodeOfSeason_CrossesSeasonBoundary()
+    public async Task ResolveNextEpisode_CurrentIsLastEpisodeOfSeason_CrossesSeasonBoundary()
     {
         var client = CreateClient(
             ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Breaking Bad"}]""")),
@@ -40,13 +43,16 @@ public class SonarrNextEpisodeResolverTests
                 """)),
             ("GET /api/v3/episodefile/101", JsonResponse("""{"id":101,"seriesId":1,"path":"/tv/Breaking Bad/S02E01.mkv"}""")));
 
-        var path = await SonarrNextEpisodeResolver.ResolveNextEpisodePath([client], "Breaking Bad", 1, 7);
+        var next = await SonarrNextEpisodeResolver.ResolveNextEpisode([client], "Breaking Bad", 1, 7);
 
-        Assert.Equal("/tv/Breaking Bad/S02E01.mkv", path);
+        Assert.NotNull(next);
+        Assert.Equal("/tv/Breaking Bad/S02E01.mkv", next.Value.Path);
+        Assert.Equal(2, next.Value.SeasonNumber);
+        Assert.Equal(1, next.Value.EpisodeNumber);
     }
 
     [Fact]
-    public async Task ResolveNextEpisodePath_SpecialsSeasonZero_NeverChosenOverLaterRegularSeason()
+    public async Task ResolveNextEpisode_SpecialsSeasonZero_NeverChosenOverLaterRegularSeason()
     {
         var client = CreateClient(
             ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Breaking Bad"}]""")),
@@ -60,13 +66,14 @@ public class SonarrNextEpisodeResolverTests
                 """)),
             ("GET /api/v3/episodefile/101", JsonResponse("""{"id":101,"seriesId":1,"path":"/tv/Breaking Bad/S02E06.mkv"}""")));
 
-        var path = await SonarrNextEpisodeResolver.ResolveNextEpisodePath([client], "Breaking Bad", 2, 5);
+        var next = await SonarrNextEpisodeResolver.ResolveNextEpisode([client], "Breaking Bad", 2, 5);
 
-        Assert.Equal("/tv/Breaking Bad/S02E06.mkv", path);
+        Assert.NotNull(next);
+        Assert.Equal("/tv/Breaking Bad/S02E06.mkv", next.Value.Path);
     }
 
     [Fact]
-    public async Task ResolveNextEpisodePath_NextEpisodeNotYetDownloaded_ReturnsNullWithoutSkippingAhead()
+    public async Task ResolveNextEpisode_NextEpisodeNotYetDownloaded_ReturnsNullWithoutSkippingAhead()
     {
         var client = CreateClient(
             ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Breaking Bad"}]""")),
@@ -79,26 +86,26 @@ public class SonarrNextEpisodeResolverTests
                 ]
                 """)));
 
-        var path = await SonarrNextEpisodeResolver.ResolveNextEpisodePath([client], "Breaking Bad", 2, 5);
+        var next = await SonarrNextEpisodeResolver.ResolveNextEpisode([client], "Breaking Bad", 2, 5);
 
-        Assert.Null(path);
+        Assert.Null(next);
     }
 
     [Fact]
-    public async Task ResolveNextEpisodePath_EndOfSeries_ReturnsNull()
+    public async Task ResolveNextEpisode_EndOfSeries_ReturnsNull()
     {
         var client = CreateClient(
             ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Breaking Bad"}]""")),
             ("GET /api/v3/episode?seriesId=1", JsonResponse(
                 """[{"id":10,"seriesId":1,"seasonNumber":5,"episodeNumber":16,"hasFile":true,"episodeFileId":100}]""")));
 
-        var path = await SonarrNextEpisodeResolver.ResolveNextEpisodePath([client], "Breaking Bad", 5, 16);
+        var next = await SonarrNextEpisodeResolver.ResolveNextEpisode([client], "Breaking Bad", 5, 16);
 
-        Assert.Null(path);
+        Assert.Null(next);
     }
 
     [Fact]
-    public async Task ResolveNextEpisodePath_NoSeriesMatchOnFirstInstance_FallsThroughToSecondInstance()
+    public async Task ResolveNextEpisode_NoSeriesMatchOnFirstInstance_FallsThroughToSecondInstance()
     {
         var noMatchClient = CreateClient(
             ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Some Other Show"}]""")));
@@ -108,10 +115,11 @@ public class SonarrNextEpisodeResolverTests
                 """[{"id":10,"seriesId":7,"seasonNumber":1,"episodeNumber":2,"hasFile":true,"episodeFileId":200}]""")),
             ("GET /api/v3/episodefile/200", JsonResponse("""{"id":200,"seriesId":7,"path":"/tv/Breaking Bad/S01E02.mkv"}""")));
 
-        var path = await SonarrNextEpisodeResolver.ResolveNextEpisodePath(
+        var next = await SonarrNextEpisodeResolver.ResolveNextEpisode(
             [noMatchClient, matchClient], "Breaking Bad", 1, 1);
 
-        Assert.Equal("/tv/Breaking Bad/S01E02.mkv", path);
+        Assert.NotNull(next);
+        Assert.Equal("/tv/Breaking Bad/S01E02.mkv", next.Value.Path);
     }
 
     private static HttpResponseMessage JsonResponse(string json) =>

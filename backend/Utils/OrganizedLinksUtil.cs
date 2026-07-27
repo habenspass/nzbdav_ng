@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using NzbWebDAV.Config;
+using NzbWebDAV.Database;
 using NzbWebDAV.Database.Models;
 using NzbWebDAV.Extensions;
 
@@ -134,6 +135,22 @@ public static class OrganizedLinksUtil
             DavItemId = davItemId,
             SymlinkOrStrmInfo = strmInfo
         };
+    }
+
+    /// <summary>
+    /// Resolves a path an external tool (e.g. Sonarr) reports for a file, back to the
+    /// nzbdav dav-item it points at. This is the reverse of <see cref="GetLink"/>, and is
+    /// a single-path lookup rather than a library-wide scan. Depends on the same
+    /// assumption <see cref="GetLink"/> and the health-check repair flow already make:
+    /// the caller sees the same absolute paths on a shared volume.
+    /// </summary>
+    public static async Task<DavItem?> TryResolveDavItem(string path, ConfigManager configManager, DavDatabaseClient dbClient)
+    {
+        var symlinkOrStrmInfo = SymlinkAndStrmUtil.GetSymlinkOrStrmInfo(new FileInfo(path));
+        if (symlinkOrStrmInfo == null) return null;
+
+        var davItemLink = GetDavItemLink(symlinkOrStrmInfo, configManager.GetRcloneMountDir());
+        return davItemLink == null ? null : await dbClient.GetFileById(davItemLink.Value.DavItemId.ToString());
     }
 
     public struct DavItemLink

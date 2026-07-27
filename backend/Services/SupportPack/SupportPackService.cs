@@ -368,7 +368,8 @@ public sealed class SupportPackService(
             if (item.Value is null)
                 continue;
             if (item.Key is ConfigKeys.ApiKey or ConfigKeys.ApiStrmKey or ConfigKeys.RclonePass
-                or ConfigKeys.WebdavPass or ConfigKeys.WatchtowerProfileToken)
+                or ConfigKeys.WebdavPass or ConfigKeys.WatchtowerProfileToken
+                or ConfigKeys.JellyfinWebhookToken)
             {
                 yield return item.Value;
                 continue;

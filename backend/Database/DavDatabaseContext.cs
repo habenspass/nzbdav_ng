@@ -63,6 +63,7 @@ public sealed class DavDatabaseContext : DbContext
     public DbSet<ListSource> ListSources => Set<ListSource>();
     public DbSet<WantedItem> WantedItems => Set<WantedItem>();
     public DbSet<NzbResolutionGroup> NzbResolutionGroups => Set<NzbResolutionGroup>();
+    public DbSet<PrefetchCacheItem> PrefetchCacheItems => Set<PrefetchCacheItem>();
 
     // Pending blob writes for the current unit of work (flushed in SaveChangesAsync).
     private readonly List<DavNzbFile> _blobNzbFiles = [];
@@ -623,6 +624,54 @@ public sealed class DavDatabaseContext : DbContext
             e.HasIndex(i => i.AttemptedAt);
             e.HasIndex(i => i.QueueItemId);
             e.HasIndex(i => i.ContentGroupKey);
+        });
+
+        // PrefetchCacheItem
+        b.Entity<PrefetchCacheItem>(e =>
+        {
+            e.ToTable("PrefetchCacheItems");
+            e.HasKey(i => i.Id);
+
+            e.Property(i => i.Id)
+                .ValueGeneratedOnAdd();
+
+            e.Property(i => i.DavItemId).IsRequired();
+            e.Property(i => i.SeriesName).IsRequired();
+            e.Property(i => i.SeasonNumber).IsRequired();
+            e.Property(i => i.EpisodeNumber).IsRequired();
+            e.Property(i => i.CacheFilePath).IsRequired();
+            e.Property(i => i.FileSize).IsRequired(false);
+
+            e.Property(i => i.Status)
+                .HasConversion<int>()
+                .IsRequired();
+
+            e.Property(i => i.StartedAt)
+                .IsRequired()
+                .HasConversion(
+                    x => x.ToUnixTimeSeconds(),
+                    x => DateTimeOffset.FromUnixTimeSeconds(x)
+                );
+
+            e.Property(i => i.CompletedAt)
+                .IsRequired(false)
+                .HasConversion(
+                    x => x.HasValue ? x.Value.ToUnixTimeSeconds() : (long?)null,
+                    x => x.HasValue ? DateTimeOffset.FromUnixTimeSeconds(x.Value) : null
+                );
+
+            e.Property(i => i.LastAccessedAt)
+                .IsRequired()
+                .HasConversion(
+                    x => x.ToUnixTimeSeconds(),
+                    x => DateTimeOffset.FromUnixTimeSeconds(x)
+                );
+
+            e.Property(i => i.FailureReason).IsRequired(false);
+
+            e.HasIndex(i => i.DavItemId);
+            e.HasIndex(i => i.Status);
+            e.HasIndex(i => i.LastAccessedAt);
         });
 
         // IndexerApiHit

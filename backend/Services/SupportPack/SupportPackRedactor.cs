@@ -21,6 +21,7 @@ internal sealed partial class SupportPackRedactor
         ConfigKeys.RclonePass,
         ConfigKeys.WebdavPass,
         ConfigKeys.WatchtowerProfileToken,
+        ConfigKeys.JellyfinWebhookToken,
     ];
 
     private static readonly HashSet<string> SecretPropertyNames =

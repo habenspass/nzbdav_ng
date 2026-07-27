@@ -333,6 +333,10 @@ public class ConfigManager
                 case ConfigKeys.BackupRetentionCount:
                 case ConfigKeys.ApiNzbBackupRetentionDays:
                 case ConfigKeys.QueueSpeedLimitKbps:
+                case ConfigKeys.CacheMinFreeSpaceGb:
+                case ConfigKeys.CachePrefetchThresholdPercent:
+                case ConfigKeys.CacheMaxCacheTimeHours:
+                case ConfigKeys.CacheMaxCacheEpisodes:
                     RequireLong(item.ConfigName, value);
                     break;
 
@@ -370,6 +374,7 @@ public class ConfigManager
                 case ConfigKeys.MaintenanceRemoveOrphanedScheduleEnabled:
                 case ConfigKeys.BackupScheduleEnabled:
                 case ConfigKeys.QueuePaused:
+                case ConfigKeys.CachePrefetchEnabled:
                     RequireBool(item.ConfigName, value);
                     break;
 
@@ -499,6 +504,52 @@ public class ConfigManager
             static bool ContainsControlChars(string? s) =>
                 !string.IsNullOrEmpty(s) && s.Any(c => c < 0x20 || c == 0x7F);
         }
+    }
+
+    public bool IsCachePrefetchEnabled()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.CachePrefetchEnabled));
+        return v != null && bool.Parse(v);
+    }
+
+    public string GetCacheDir()
+    {
+        return StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.CacheDir))
+               ?? Path.Combine(DavDatabaseContext.ConfigPath, "prefetch-cache");
+    }
+
+    public int GetCacheMinFreeSpaceGb()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.CacheMinFreeSpaceGb));
+        if (v == null) return 10;
+        return int.TryParse(v, out var n) ? Math.Clamp(n, 0, 10_000) : 10;
+    }
+
+    public int GetCachePrefetchThresholdPercent()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.CachePrefetchThresholdPercent));
+        if (v == null) return 80;
+        return int.TryParse(v, out var n) ? Math.Clamp(n, 1, 100) : 80;
+    }
+
+    public int GetCacheMaxCacheTimeHours()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.CacheMaxCacheTimeHours));
+        if (v == null) return 48;
+        return int.TryParse(v, out var n) ? Math.Clamp(n, 1, 24 * 365) : 48;
+    }
+
+    public int GetCacheMaxCacheEpisodes()
+    {
+        var v = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.CacheMaxCacheEpisodes));
+        if (v == null) return 5;
+        return int.TryParse(v, out var n) ? Math.Clamp(n, 1, 1_000) : 5;
+    }
+
+    public string GetJellyfinWebhookToken()
+    {
+        return GetConfigValue(ConfigKeys.JellyfinWebhookToken)
+               ?? throw new InvalidOperationException($"The `{ConfigKeys.JellyfinWebhookToken}` config does not exist.");
     }
 
     public string GetRcloneMountDir()

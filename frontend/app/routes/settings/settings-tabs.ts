@@ -6,6 +6,7 @@ export type SettingsTab =
     | "preflight"
     | "watchtower"
     | "warden"
+    | "cache"
     | "sabnzbd"
     | "webdav"
     | "arrs"
@@ -42,6 +43,7 @@ export const SETTINGS_TAB_GROUPS: SettingsTabGroup[] = [
             { id: "preflight", label: "Preflight", icon: "fact_check" },
             { id: "watchtower", label: "Watchtower", icon: "cell_tower" },
             { id: "warden", label: "Warden", icon: "shield" },
+            { id: "cache", label: "Cache", icon: "movie_filter" },
         ],
     },
     {

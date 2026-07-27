@@ -178,4 +178,15 @@ public static class ConfigKeys
     // database
     public const string DatabaseHealthcheckRetentionDays = "database.healthcheck-retention-days";
     public const string DatabaseHistoryRetentionDays = "database.history-retention-days";
+
+    // predictive episode prefetch cache
+    public const string CachePrefetchEnabled = "cache.prefetch-enabled";
+    public const string CacheDir = "cache.dir";
+    public const string CacheMinFreeSpaceGb = "cache.min-free-space-gb";
+    public const string CachePrefetchThresholdPercent = "cache.prefetch-threshold-percent";
+    public const string CacheMaxCacheTimeHours = "cache.max-cache-time-hours";
+    public const string CacheMaxCacheEpisodes = "cache.max-cache-episodes";
+
+    // jellyfin webhook
+    public const string JellyfinWebhookToken = "jellyfin.webhook-token";
 }

@@ -274,6 +274,26 @@ class Program
                 .AddHostedService<MultipartFileSizeRepairService>()
                 .AddHostedService<RemoveOrphanedFilesSchedulerService>()
                 .AddHostedService<ActiveReadsBroadcaster>()
+                .AddSingleton(sp => new PrefetchCacheService(
+                    sp.GetRequiredService<ConfigManager>(),
+                    sp.GetRequiredService<UsenetStreamingClient>(),
+                    sp.GetRequiredService<QueueManager>(),
+                    sp.GetRequiredService<WebsocketManager>(),
+                    sp.GetRequiredService<LazyRarResolver>(),
+                    sp.GetRequiredService<InFlightArticleBudget>(),
+                    () => new DavDatabaseContext()))
+                .AddSingleton(sp => new JellyfinWebhookHandler(
+                    sp.GetRequiredService<ConfigManager>(),
+                    sp.GetRequiredService<SonarrNextEpisodeResolver>(),
+                    sp.GetRequiredService<PrefetchCacheService>(),
+                    () => new DavDatabaseContext()))
+                .AddHostedService(sp => new PrefetchCacheEvictionService(
+                    sp.GetRequiredService<ConfigManager>(),
+                    () => new DavDatabaseContext()))
+                .AddHostedService(sp => new PrefetchCacheBroadcaster(
+                    sp.GetRequiredService<ConfigManager>(),
+                    sp.GetRequiredService<WebsocketManager>(),
+                    () => new DavDatabaseContext()))
                 .AddSingleton<WatchtowerStore>()
                 .AddSingleton<ListSourceEnumerator>()
                 .AddSingleton<EpisodeEnumerator>()
@@ -320,6 +340,8 @@ class Program
             // before the first BODY decode (which can crash on a bad native lib).
             app.Lifetime.ApplicationStarted.Register(() =>
                 app.Services.GetRequiredService<QueueManager>().StartProcessing());
+            app.Lifetime.ApplicationStarted.Register(() =>
+                app.Services.GetRequiredService<PrefetchCacheService>().Start(SigtermUtil.GetCancellationToken()));
             await app.RunAsync().ConfigureAwait(false);
         }
         catch (Exception exception)

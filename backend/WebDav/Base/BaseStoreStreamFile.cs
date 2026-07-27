@@ -10,6 +10,18 @@ public abstract class BaseStoreStreamFile(HttpContext context, ConfigManager con
 {
     protected abstract Task<Stream> GetStreamAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Opens the underlying stream without the live-HTTP-request machinery
+    /// <see cref="GetReadableStreamAsync"/> sets up (per-stream connection semaphore,
+    /// download-priority/timeout contexts, and their <c>Response.OnCompleted</c>
+    /// cleanup). For background callers (e.g. episode prefetching) that have no real
+    /// response pipeline to fire that cleanup and should not compete with live
+    /// playback at "High" priority — those callers get the same effectively-unprioritized
+    /// treatment queue/RAR processing already gets when reading segments directly.
+    /// </summary>
+    internal Task<Stream> GetStreamForBackgroundUseAsync(CancellationToken cancellationToken) =>
+        GetStreamAsync(cancellationToken);
+
     public override Task<Stream> GetReadableStreamAsync(CancellationToken cancellationToken)
     {
         var streamSemaphore = CreatePerStreamSemaphore();
