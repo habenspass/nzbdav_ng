@@ -193,3 +193,4 @@ NzbDAV is released under the [MIT License](LICENSE).
 
 > [!NOTE]
 > NzbDAV is intended for use with legally obtained or public domain content only. The project maintainers do not condone piracy and will not provide support for users suspected of engaging in copyright infringement.
+
