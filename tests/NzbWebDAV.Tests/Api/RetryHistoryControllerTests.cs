@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NzbWebDAV.Api.SabControllers.RetryHistory;
 using NzbWebDAV.Clients.Usenet;
+using NzbWebDAV.Clients.Usenet.Bandwidth;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database;
 using NzbWebDAV.Database.Interceptors;
@@ -67,7 +68,8 @@ public sealed class RetryHistoryControllerTests : IAsyncLifetime
             new MetricsWriter(),
             new ProviderBytesTracker(),
             new StreamTraceBuffer(100),
-            new ActiveReadRegistry());
+            new ActiveReadRegistry(),
+            new UsenetBandwidthLimiter(_configManager));
         _queueManager = new QueueManager(
             usenet,
             _configManager,

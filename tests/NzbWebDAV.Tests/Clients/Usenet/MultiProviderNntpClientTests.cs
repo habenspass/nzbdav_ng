@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.IO;
 using NzbWebDAV.Clients.Usenet;
+using NzbWebDAV.Clients.Usenet.Bandwidth;
 using NzbWebDAV.Clients.Usenet.Connections;
 using NzbWebDAV.Clients.Usenet.Models;
 using NzbWebDAV.Config;
@@ -8,6 +10,7 @@ using NzbWebDAV.Database.Models.Metrics;
 using NzbWebDAV.Exceptions;
 using NzbWebDAV.Models;
 using NzbWebDAV.Services.Metrics;
+using NzbWebDAV.Tests.Fakes;
 using UsenetSharp.Models;
 using UsenetSharp.Streams;
 
@@ -15,6 +18,44 @@ namespace NzbWebDAV.Tests.Clients.Usenet;
 
 public class MultiProviderNntpClientTests
 {
+    [Fact]
+    public async Task DecodedBodyAsync_WithBandwidthLimiter_PacesRealDecodedBytes()
+    {
+        // Proves the limiter is actually reached on a real read path (WrapProviderStream),
+        // not just exercised in isolation against UsenetBandwidthLimiter directly: a real
+        // yEnc-encoded body, decoded through the same CorruptionDetecting/Throttled/Counting
+        // stream chain production code builds, must come out slower than the configured rate
+        // would allow if it weren't throttled.
+        const int payloadBytes = 20_000;
+        const int rateBytesPerSecond = 10_000;
+
+        var configManager = new ConfigManager();
+        configManager.UpdateValues(
+        [
+            new ConfigItem
+            {
+                ConfigName = ConfigKeys.UsenetBandwidthLimitMbps,
+                ConfigValue = (rateBytesPerSecond * 8 / 1_000_000.0).ToString("R"),
+            },
+        ]);
+        var limiter = new UsenetBandwidthLimiter(configManager);
+
+        var fake = new FakeNntpClient(
+            new Dictionary<string, byte[]> { ["segment"] = new byte[payloadBytes] });
+        using var client = new MultiProviderNntpClient(
+            [CreateProvider(fake)], bandwidthLimiter: limiter);
+
+        var response = await client.DecodedBodyAsync("segment", CancellationToken.None);
+        var stopwatch = Stopwatch.StartNew();
+        await using var destination = new MemoryStream();
+        await response.Stream!.CopyToAsync(destination, CancellationToken.None);
+
+        Assert.Equal(payloadBytes, destination.Length);
+        var minimumExpectedMs = payloadBytes * 1000.0 / rateBytesPerSecond * 0.5;
+        Assert.True(stopwatch.ElapsedMilliseconds >= minimumExpectedMs,
+            $"Expected throttled read to take at least ~{minimumExpectedMs}ms, took {stopwatch.ElapsedMilliseconds}ms");
+    }
+
     [Fact]
     public async Task BatchResponse_WithUnexpectedResponse_RetriesOnSameProvider()
     {

@@ -1,4 +1,5 @@
-﻿using NzbWebDAV.Clients.Usenet.Connections;
+﻿using NzbWebDAV.Clients.Usenet.Bandwidth;
+using NzbWebDAV.Clients.Usenet.Connections;
 using NzbWebDAV.Clients.Usenet.Models;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database.Models.Metrics;
@@ -22,10 +23,11 @@ public class UsenetStreamingClient : WrappingNntpClient
         ProviderBytesTracker bytesTracker,
         StreamTraceBuffer streamTrace,
         ActiveReadRegistry activeReadRegistry,
+        UsenetBandwidthLimiter bandwidthLimiter,
         ArticleMissNegativeCache? articleMissCache = null)
         : base(CreateDownloadingNntpClient(
             configManager, websocketManager, usageTracker, metricsWriter, bytesTracker,
-            streamTrace, activeReadRegistry, articleMissCache))
+            streamTrace, activeReadRegistry, bandwidthLimiter, articleMissCache))
     {
         // when config changes, create a new MultiProviderClient to use instead.
         configManager.OnConfigChanged += (_, configEventArgs) =>
@@ -38,7 +40,7 @@ public class UsenetStreamingClient : WrappingNntpClient
                 // update the connection-pool according to the new config
                 var newUsenetClient = CreateDownloadingNntpClient(
                     configManager, websocketManager, usageTracker, metricsWriter, bytesTracker,
-                    streamTrace, activeReadRegistry, articleMissCache);
+                    streamTrace, activeReadRegistry, bandwidthLimiter, articleMissCache);
                 ReplaceUnderlyingClient(newUsenetClient);
             }
             catch (Exception e)
@@ -59,12 +61,13 @@ public class UsenetStreamingClient : WrappingNntpClient
         ProviderBytesTracker bytesTracker,
         StreamTraceBuffer streamTrace,
         ActiveReadRegistry activeReadRegistry,
+        UsenetBandwidthLimiter bandwidthLimiter,
         ArticleMissNegativeCache? articleMissCache
     )
     {
         var multiProviderClient = CreateMultiProviderClient(
             configManager, websocketManager, usageTracker, metricsWriter, bytesTracker,
-            streamTrace, activeReadRegistry, articleMissCache);
+            streamTrace, activeReadRegistry, bandwidthLimiter, articleMissCache);
         var downloadingClient = new DownloadingNntpClient(multiProviderClient, configManager);
         INntpClient inner = downloadingClient;
         if (configManager.IsSegmentCacheEnabled())
@@ -107,6 +110,7 @@ public class UsenetStreamingClient : WrappingNntpClient
         ProviderBytesTracker bytesTracker,
         StreamTraceBuffer streamTrace,
         ActiveReadRegistry activeReadRegistry,
+        UsenetBandwidthLimiter bandwidthLimiter,
         ArticleMissNegativeCache? articleMissCache
     )
     {
@@ -134,7 +138,8 @@ public class UsenetStreamingClient : WrappingNntpClient
             retryPrimaryOnMiss: configManager.IsCascadeRetryPrimaryOnMiss,
             streamTrace: streamTrace,
             activeReadRegistry: activeReadRegistry,
-            articleMissCache: articleMissCache);
+            articleMissCache: articleMissCache,
+            bandwidthLimiter: bandwidthLimiter);
     }
 
     private static MultiConnectionNntpClient CreateProviderClient

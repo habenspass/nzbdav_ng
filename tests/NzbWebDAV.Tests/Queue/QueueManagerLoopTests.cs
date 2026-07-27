@@ -1,5 +1,6 @@
 using System.Text.Json;
 using NzbWebDAV.Clients.Usenet;
+using NzbWebDAV.Clients.Usenet.Bandwidth;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database.Models;
 using NzbWebDAV.Queue;
@@ -248,7 +249,8 @@ public class QueueManagerLoopTests
             new MetricsWriter(),
             new ProviderBytesTracker(),
             new StreamTraceBuffer(100),
-            new ActiveReadRegistry());
+            new ActiveReadRegistry(),
+            new UsenetBandwidthLimiter(config));
 
         return new QueueManager(
             usenet,
