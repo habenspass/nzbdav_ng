@@ -30,6 +30,84 @@ public class RadarrSonarrClientTests
     }
 
     [Fact]
+    public async Task FindSeriesByTitle_ExactMatch_ReturnsSeries()
+    {
+        using var httpClient = new HttpClient(CreateHandler(
+            ("GET /api/v3/series", JsonResponse("""[{"id":1,"title":"Breaking Bad"}]"""))));
+        var client = new TestSonarrClient(httpClient);
+
+        var series = await client.FindSeriesByTitle("Breaking Bad");
+
+        Assert.NotNull(series);
+        Assert.Equal(1, series!.Id);
+    }
+
+    [Fact]
+    public async Task FindSeriesByTitle_IncomingHasYearSuffixSonarrDoesNot_MatchesViaNormalizedTier()
+    {
+        using var httpClient = new HttpClient(CreateHandler(
+            ("GET /api/v3/series", JsonResponse("""[{"id":2,"title":"The Office"}]"""))));
+        var client = new TestSonarrClient(httpClient);
+
+        var series = await client.FindSeriesByTitle("The Office (2005)");
+
+        Assert.NotNull(series);
+        Assert.Equal(2, series!.Id);
+    }
+
+    [Fact]
+    public async Task FindSeriesByTitle_PunctuationDiffers_MatchesViaNormalizedTier()
+    {
+        using var httpClient = new HttpClient(CreateHandler(
+            ("GET /api/v3/series", JsonResponse("""[{"id":8,"title":"Grey's Anatomy"}]"""))));
+        var client = new TestSonarrClient(httpClient);
+
+        var series = await client.FindSeriesByTitle("Greys Anatomy");
+
+        Assert.NotNull(series);
+        Assert.Equal(8, series!.Id);
+    }
+
+    [Fact]
+    public async Task FindSeriesByTitle_MatchesViaAlternateTitle()
+    {
+        using var httpClient = new HttpClient(CreateHandler(
+            ("GET /api/v3/series", JsonResponse(
+                """[{"id":3,"title":"It: Welcome to Derry","alternateTitles":[{"title":"Es - Welcome to Derry"}]}]"""))));
+        var client = new TestSonarrClient(httpClient);
+
+        var series = await client.FindSeriesByTitle("Es - Welcome to Derry");
+
+        Assert.NotNull(series);
+        Assert.Equal(3, series!.Id);
+    }
+
+    [Fact]
+    public async Task FindSeriesByTitle_AmbiguousNormalizedMatch_ReturnsNullWithoutFallingThroughToAlternateTitles()
+    {
+        using var httpClient = new HttpClient(CreateHandler(
+            ("GET /api/v3/series", JsonResponse(
+                """[{"id":4,"title":"Foo (2001)"},{"id":5,"title":"Foo (2019)","alternateTitles":[{"title":"Foo"}]}]"""))));
+        var client = new TestSonarrClient(httpClient);
+
+        var series = await client.FindSeriesByTitle("Foo");
+
+        Assert.Null(series);
+    }
+
+    [Fact]
+    public async Task FindSeriesByTitle_NoMatchAtAnyTier_ReturnsNull()
+    {
+        using var httpClient = new HttpClient(CreateHandler(
+            ("GET /api/v3/series", JsonResponse("""[{"id":6,"title":"Some Other Show"}]"""))));
+        var client = new TestSonarrClient(httpClient);
+
+        var series = await client.FindSeriesByTitle("Completely Unrelated");
+
+        Assert.Null(series);
+    }
+
+    [Fact]
     public async Task RadarrStaleCachedMovie_ReturnsFalseAfter404()
     {
         const string filePath = "/library/movies/Stale Movie/Stale Movie.mkv";

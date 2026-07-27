@@ -19,6 +19,7 @@ using NzbWebDAV.Middlewares;
 using NzbWebDAV.Queue;
 using NzbWebDAV.Services;
 using NzbWebDAV.Services.Metrics;
+using NzbWebDAV.Services.PrefetchCache;
 using NzbWebDAV.Services.SupportPack;
 using NzbWebDAV.Services.StreamTrace;
 using NzbWebDAV.Streams;
@@ -247,6 +248,7 @@ class Program
                 .AddSingleton<AnimeListMappingResolver>()
                 .AddSingleton<ExternalIdResolver>()
                 .AddSingleton<ImdbTitleResolver>()
+                .AddSingleton<SonarrNextEpisodeResolver>()
                 .AddSingleton<SearchProfileService>()
                 .AddSingleton<VariantResolver>()
                 .AddSingleton<MetricsWriter>()

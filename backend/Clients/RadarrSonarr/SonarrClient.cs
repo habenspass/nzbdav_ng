@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Text.RegularExpressions;
 using NzbWebDAV.Clients.RadarrSonarr.BaseModels;
 using NzbWebDAV.Clients.RadarrSonarr.SonarrModels;
 using NzbWebDAV.Utils;
@@ -34,11 +35,52 @@ public class SonarrClient(string host, string apiKey) : ArrClient(host, apiKey)
     public Task<List<SonarrEpisode>> GetEpisodesFromEpisodeFileId(int episodeFileId) =>
         Get<List<SonarrEpisode>>($"/episode?episodeFileId={episodeFileId}");
 
+    public Task<List<SonarrEpisode>> GetAllEpisodesForSeries(int seriesId) =>
+        Get<List<SonarrEpisode>>($"/episode?seriesId={seriesId}");
+
     public Task<HttpStatusCode> DeleteEpisodeFile(int episodeFileId) =>
         Delete($"/episodefile/{episodeFileId}");
 
     public Task<ArrCommand> SearchEpisodesAsync(List<int> episodeIds) =>
         CommandAsync(new { name = "EpisodeSearch", episodeIds });
+
+    /// <summary>
+    /// Finds a series by name using progressively looser tiers: exact title,
+    /// then title normalized (year-suffix/punctuation/whitespace stripped),
+    /// then normalized match against Sonarr's own alternate/localized titles.
+    /// Stops at the first tier with exactly one match; an ambiguous (&gt;1) or
+    /// empty result at any tier is treated as "no match" rather than guessing.
+    /// </summary>
+    public async Task<SonarrSeries?> FindSeriesByTitle(string seriesName)
+    {
+        var allSeries = await GetAllSeries();
+
+        var exactMatches = allSeries
+            .Where(s => s.Title != null && s.Title.Equals(seriesName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (exactMatches.Count == 1) return exactMatches[0];
+        if (exactMatches.Count > 1) return null;
+
+        var normalizedName = NormalizeTitle(seriesName);
+        var normalizedMatches = allSeries
+            .Where(s => s.Title != null && NormalizeTitle(s.Title) == normalizedName)
+            .ToList();
+        if (normalizedMatches.Count == 1) return normalizedMatches[0];
+        if (normalizedMatches.Count > 1) return null;
+
+        var alternateTitleMatches = allSeries
+            .Where(s => s.AlternateTitles?.Any(a => a.Title != null && NormalizeTitle(a.Title) == normalizedName) == true)
+            .ToList();
+        return alternateTitleMatches.Count == 1 ? alternateTitleMatches[0] : null;
+    }
+
+    private static string NormalizeTitle(string title)
+    {
+        var withoutYear = Regex.Replace(title, @"\s*\(\d{4}\)\s*$", "");
+        var withoutPunctuation = Regex.Replace(withoutYear, @"[^\w\s]", "");
+        var collapsedWhitespace = Regex.Replace(withoutPunctuation, @"\s+", " ").Trim();
+        return collapsedWhitespace.ToLowerInvariant();
+    }
 
     public override async Task<bool> RemoveAndSearch(string symlinkOrStrmPath)
     {
