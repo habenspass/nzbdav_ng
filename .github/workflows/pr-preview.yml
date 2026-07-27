@@ -1,0 +1,27 @@
+name: PR preview image
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # pull_request (not pull_request_target) from a fork gets a read-only
+    # GITHUB_TOKEN no matter what `permissions:` below asks for, so packages:
+    # write would just fail. Skip explicitly rather than fail unhelpfully;
+    # forked PRs still get the full signal from ci.yml.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/docker-build-push.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      tags: |
+        ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
+      nzbdav_version: 0.0.0-pr${{ github.event.pull_request.number }}
+      checkout_ref: ${{ github.event.pull_request.head.sha }}
+    secrets:
+      registry_token: ${{ secrets.GITHUB_TOKEN }}
