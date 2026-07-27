@@ -25,8 +25,21 @@ public class JellyfinWebhookController(ConfigManager configManager, JellyfinWebh
     [HttpPost]
     public async Task<IActionResult> Handle(CancellationToken ct)
     {
-        if (!Request.Query.TryGetValue("apikey", out var apikey)
-            || !apikey.ToString().FixedTimeEquals(configManager.GetJellyfinWebhookToken()))
+        string? expectedToken;
+        try
+        {
+            expectedToken = configManager.GetJellyfinWebhookToken();
+        }
+        catch (InvalidOperationException)
+        {
+            // The token-seeding migration hasn't run yet (e.g. a pre-migration DB restore) —
+            // treat this identically to a bad token rather than letting it surface as a 500.
+            expectedToken = null;
+        }
+
+        if (expectedToken == null
+            || !Request.Query.TryGetValue("apikey", out var apikey)
+            || !apikey.ToString().FixedTimeEquals(expectedToken))
         {
             return Unauthorized(new BaseApiResponse { Status = false, Error = "API Key Incorrect" });
         }

@@ -287,9 +287,10 @@ class Program
                     sp.GetRequiredService<SonarrNextEpisodeResolver>(),
                     sp.GetRequiredService<PrefetchCacheService>(),
                     () => new DavDatabaseContext()))
-                .AddHostedService(sp => new PrefetchCacheEvictionService(
+                .AddSingleton(sp => new PrefetchCacheEvictionService(
                     sp.GetRequiredService<ConfigManager>(),
                     () => new DavDatabaseContext()))
+                .AddHostedService(sp => sp.GetRequiredService<PrefetchCacheEvictionService>())
                 .AddHostedService(sp => new PrefetchCacheBroadcaster(
                     sp.GetRequiredService<ConfigManager>(),
                     sp.GetRequiredService<WebsocketManager>(),

@@ -9,9 +9,10 @@ export type ItemMenuProps = {
     exploreFile?: ExploreFile,
     previewPath?: string,
     onRemove?: () => void,
+    onCacheNow?: () => void,
 }
 
-export function ItemMenu({ className, openClassName, exploreFile, previewPath, onRemove }: ItemMenuProps): ReactNode {
+export function ItemMenu({ className, openClassName, exploreFile, previewPath, onRemove, onCacheNow }: ItemMenuProps): ReactNode {
     const [isOpen, setIsOpen] = useState(false);
     const exportNzbUrl = exploreFile ? `/api/download-nzb?nzbBlobId=${exploreFile.nzbBlobId}` : undefined;
     const downloadUrl = previewPath ? `${previewPath}&download=true` : undefined;
@@ -26,6 +27,7 @@ export function ItemMenu({ className, openClassName, exploreFile, previewPath, o
         previewPath ? { option: <Preview />, linkTo: previewPath } : undefined,
         downloadUrl ? { option: <Download />, linkTo: downloadUrl } : undefined,
         exploreFile?.nzbBlobId && exportNzbUrl ? { option: <ExportNzb />, linkTo: exportNzbUrl } : undefined,
+        onCacheNow ? { option: <CacheNow />, onSelect: onCacheNow } : undefined,
         onRemove ? { option: <Remove />, variant: "danger" as const, onSelect: onRemove } : undefined,
     ].filter(Boolean);
 
@@ -62,6 +64,12 @@ export function Download(): ReactNode {
 export function ExportNzb(): ReactNode {
     return (
         <><Icon name="upload" className="mr-2 !text-[18px]" /> Export NZB</>
+    );
+}
+
+export function CacheNow(): ReactNode {
+    return (
+        <><Icon name="cached" className="mr-2 !text-[18px]" /> Cache this now</>
     );
 }
 

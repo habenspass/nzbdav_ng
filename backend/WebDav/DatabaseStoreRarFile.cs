@@ -25,6 +25,7 @@ public class DatabaseStoreRarFile(
     public override long FileSize => davRarFile.FileSize!.Value;
     public override DateTime CreatedAt => davRarFile.CreatedAt;
     public override Guid? NzbBlobId => davRarFile.NzbBlobId;
+    public override Guid? DavItemId => davRarFile.Id;
 
     protected override async Task<Stream> GetStreamAsync(CancellationToken ct)
     {

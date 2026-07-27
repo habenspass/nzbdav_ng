@@ -12,6 +12,7 @@ import {
 
 export type LeftNavigationProps = {
     isWatchdogEnabled?: boolean,
+    isPrefetchCacheEnabled?: boolean,
 }
 
 type NavItem = {
@@ -24,6 +25,7 @@ const SETTINGS_ITEMS = SETTINGS_TAB_GROUPS.flatMap((group) => group.items);
 
 export function LeftNavigation({
     isWatchdogEnabled,
+    isPrefetchCacheEnabled,
 }: LeftNavigationProps) {
     const location = useLocation();
     const navigation = useNavigation();
@@ -46,6 +48,9 @@ export function LeftNavigation({
             ? [{ target: "/watchdog", icon: "monitor_heart", label: "Watchdog" }]
             : []),
         { target: "/watchtower", icon: "cell_tower", label: "Watchtower" },
+        ...(isPrefetchCacheEnabled
+            ? [{ target: "/prefetch-cache", icon: "cached", label: "Prefetch Cache" }]
+            : []),
         { target: "/explore", icon: "folder_open", label: "Files" },
         { target: "/health", icon: "health_and_safety", label: "Health" },
         { target: "/logs", icon: "description", label: "Logs" },

@@ -34,6 +34,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const config = await backendClient.getConfig([
     "usenet.providers",
     "play.watchdog-enabled",
+    "cache.prefetch-enabled",
   ]);
 
   const version = await getAppVersion();
@@ -48,6 +49,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     ),
     isWatchdogEnabled:
       config.find(item => item.configName === "play.watchdog-enabled")?.configValue?.toLowerCase() !== "false",
+    isPrefetchCacheEnabled:
+      config.find(item => item.configName === "cache.prefetch-enabled")?.configValue?.toLowerCase() === "true",
   };
 }
 
@@ -123,6 +126,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     isFrontendAuthDisabled,
     hasUsenetProviders,
     isWatchdogEnabled,
+    isPrefetchCacheEnabled,
   } = loaderData;
   const location = useLocation();
   const navigation = useNavigation();
@@ -151,7 +155,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
         bodyChild={showLoading ? <Loading /> : <Outlet />}
         leftNavChild={
           <LeftNavigation
-            isWatchdogEnabled={isWatchdogEnabled} />
+            isWatchdogEnabled={isWatchdogEnabled}
+            isPrefetchCacheEnabled={isPrefetchCacheEnabled} />
         } />
     );
   }

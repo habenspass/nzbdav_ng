@@ -28,7 +28,8 @@ public class ListWebdavDirectoryController(DatabaseStore store, ConfigManager co
                 Name = child.Name,
                 IsDirectory = (child is IStoreCollection),
                 Size = (child is BaseStoreItem bsi ? bsi.FileSize : null),
-                NzbBlobId = (child is BaseStoreItem bsi2 ? bsi2.NzbBlobId : null)
+                NzbBlobId = (child is BaseStoreItem bsi2 ? bsi2.NzbBlobId : null),
+                DavItemId = (child is BaseStoreItem bsi3 ? bsi3.DavItemId : null)
             });
         }
 
